@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const uuidv1 = require('uuid/v1');
 const crypto = require('crypto');
 
+
 const userSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -22,7 +23,15 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
-    updated: Date
+    updated: Date,
+    photo: {
+        data: Buffer,
+        contentType: String
+    },
+    about: {
+        type: String,
+        trim: true
+    }
 });
 
 //virtual field
@@ -42,13 +51,14 @@ userSchema.virtual('password')
 //methods
 userSchema.methods = {
     authenticate: function (plainText) {
-        return this.encryptPassword(plainText) == this.hashed_password;
+        return this.encryptPassword(plainText) === this.hashed_password;
     },
 
     encryptPassword: function (password) {
         if (!password) return "";
         try {
-            return crypto.createHmac('sha1', this.salt)
+            return crypto
+                .createHmac('sha1', this.salt)
                 .update(password)
                 .digest('hex')
         } catch (err) {
