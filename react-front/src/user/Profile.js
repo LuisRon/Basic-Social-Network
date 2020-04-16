@@ -4,17 +4,44 @@ import { Redirect, Link } from 'react-router-dom';
 import { read } from './apiUser';
 import DefaultAvatar from '../images/avatar.png';
 import DeleteUser from './DeleteUser';
+import FollowProfileButton from './FollowProfileButton';
+import ProfileTabs from './ProfileTabs';
+import { listByUser } from '../post/apiPost';
 
 class Profile extends Component {
     constructor(props) {
         super(props)
 
         this.state = {
-            user: "",
+            user: { following: [], followers: [] },
             redirectToSignin: false,
-            error: ""
+            error: "",
+            following: false,
+            posts: []
         }
     }
+
+    // check follow
+    checkFollow = user => {
+        const jwt = isAuthenticated();
+        const match = user.followers.find(follower => {
+            return follower._id === jwt.user._id
+        });
+        return match;
+    };
+
+    clickFollowButton = callApi => {
+        const userId = isAuthenticated().user._id;
+        const token = isAuthenticated().token;
+
+        callApi(userId, token, this.state.user._id).then(data => {
+            if (data.error) {
+                this.setState({ error: data.error });
+            } else {
+                this.setState({ user: data, following: !this.state.following });
+            }
+        });
+    };
 
     init = userId => {
         const token = isAuthenticated().token;
@@ -23,9 +50,23 @@ class Profile extends Component {
                 if (data.error) {
                     this.setState({ redirectToSignin: true })
                 } else {
-                    this.setState({ user: data });
+                    let following = this.checkFollow(data)
+                    this.setState({ user: data, following });
+                    this.loadPosts(data._id)
                 }
             });
+    };
+
+    loadPosts = userId => {
+        const token = isAuthenticated().token;
+        listByUser(userId, token)
+            .then(data => {
+                if (data.error) {
+                    console.log(data.error)
+                } else {
+                    this.setState({ posts: data })
+                }
+            })
     };
 
     componentDidMount() {
@@ -40,7 +81,7 @@ class Profile extends Component {
 
     render() {
 
-        const { redirectToSignin, user } = this.state;
+        const { redirectToSignin, user, posts } = this.state;
 
         const photoUrl = user._id
             ? `${process.env.REACT_APP_API_URL}/user/photo/${user._id}?${new Date().getTime()}`
@@ -52,7 +93,7 @@ class Profile extends Component {
             <div className='container'>
                 <h2 className='mt-5 mb-5'>Profile</h2>
                 <div className="row">
-                    <div className="col-md-6">
+                    <div className="col-md-4">
                         <img
                             className='img-thumbnail'
                             style={{ height: '200px', width: 'auto' }}
@@ -62,7 +103,7 @@ class Profile extends Component {
                         />
                     </div>
 
-                    <div className="col-md-6">
+                    <div className="col-md-8">
 
                         <div className="lead mt-2">
                             <p>Hello {user.name}</p>
@@ -70,25 +111,46 @@ class Profile extends Component {
                             <p>{`Joined ${new Date(user.created).toDateString()}`}</p>
                         </div>
 
-                        {user && user._id && (
-                            <div className='mt-5'>
-                                <Link
-                                    className='btn btn-raised btn-success mr-5'
-                                    to={`/user/edit/${user._id}`}
-                                >
-                                    Edit Profile
-                             </Link>
-                                <DeleteUser userId={user._id} />
-                            </div>
-                        )}
+                        {isAuthenticated().user && isAuthenticated().user._id === user._id
+                            ? (
+                                <div className='mt-5'>
+                                    <Link
+                                        className='btn btn-raised btn-info mr-5'
+                                        to={`/create/post`}
+                                    >
+                                        Create Post
+                                     </Link>
+                                    <Link
+                                        className='btn btn-raised btn-success mr-5'
+                                        to={`/user/edit/${user._id}`}
+                                    >
+                                        Edit Profile
+                                    </Link>
+                                    <DeleteUser userId={user._id} />
+                                </div>
+                            )
+                            : (
+                                <FollowProfileButton
+                                    following={this.state.following}
+                                    onButtonClick={this.clickFollowButton}
+                                />
+                            )
+                        }
+
                     </div>
                 </div>
 
                 <div className="row">
                     <div className="col md-12 mt-5 mb-5">
-                        <hr/>
+                        <hr />
                         <p className="lead">{user.about}</p>
-                        <hr/>
+                        <hr />
+
+                        <ProfileTabs
+                            followers={user.followers}
+                            following={user.following}
+                            posts={posts}
+                        />
                     </div>
                 </div>
             </div>

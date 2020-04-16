@@ -22,9 +22,10 @@ exports.postById = (req, res, next, id) => {
 exports.getPosts = (req, res) => {
     const posts = Post.find()
         .populate("postedBy", "_id name")
-        .select("_id title body")
+        .select("_id title body created")
+        .sort({ created: -1 })
         .then(posts => {
-            res.json({ posts })
+            res.json(posts)
         })
         .catch(err => console.log(err))
 };
@@ -41,13 +42,13 @@ exports.createPost = (req, res, next) => {
         };
         let post = new Post(fields);
 
-        user.hashed_password = undefined;
-        user.salt = undefined;
+        req.profile.hashed_password = undefined;
+        req.profile.salt = undefined;
         post.postedBy = req.profile;
 
         if (files.photo) {
             post.photo.data = fs.readFileSync(files.photo.path);
-            post.photo.contenType = files.photo.type;
+            post.photo.contentType = files.photo.type;
         };
 
         post.save((err, result) => {
@@ -59,15 +60,6 @@ exports.createPost = (req, res, next) => {
             res.json(result);
         })
     });
-
-    const post = new Post(req.body);
-
-    post.save()
-        .then(result => {
-            res.status(200).json({
-                post: result
-            });
-        });
 };
 
 exports.postsByUser = (req, res) => {
@@ -86,7 +78,7 @@ exports.postsByUser = (req, res) => {
 };
 
 exports.isPoster = (req, res, next) => {
-    let isPoster = req.post && req.auth && req.post.postedBy._id === req.auth._id;
+    let isPoster = req.post && req.auth && req.post.postedBy._id == req.auth._id;
     if (!isPoster) {
         return res.status(403).json({
             error: "User is not authorized"
@@ -96,17 +88,33 @@ exports.isPoster = (req, res, next) => {
 };
 
 exports.updatePost = (req, res, next) => {
-    let post = req.post;
-    post = _.extend(post, req.body);
-    post.updated = Date.now();
-    post.save(err => {
+    let form = new formidable.IncomingForm();
+    form.keepExtensions = true;
+    form.parse(req, (err, fields, files) => {
         if (err) {
             return res.status(400).json({
-                error: err
+                error: "Photo could not be uploaded"
             })
         }
-        res.json(post);
-    });
+        // save post
+        let post = req.post;
+        post = _.extend(post, fields);
+        post.updated = Date.now();
+
+        if (files.photo) {
+            post.photo.data = fs.readFileSync(files.photo.path);
+            post.photo.contentType = files.photo.type;
+        }
+
+        post.save((err, result) => {
+            if (err) {
+                return res.status(400).json({
+                    error: err
+                })
+            };
+            res.json(post);
+        })
+    })
 };
 
 exports.deletePost = (req, res) => {
@@ -122,4 +130,15 @@ exports.deletePost = (req, res) => {
             message: "Post deleted succesfully"
         });
     });
-};
+}
+
+exports.photo = (req, res, next) => {
+    res.set("Content-Type", req.post.photo.contentType);
+    return res.send(req.postphoto.data);
+}
+
+
+exports.singlePost = (req, res) => {
+    return res.json(req.post)
+}
+
