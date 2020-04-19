@@ -1,14 +1,25 @@
 import React, { Component } from 'react';
-import { singlePost, remove } from './apiPost';
+import { singlePost, remove, like, unlike } from './apiPost';
 import DefaultImage from '../images/mountain.jpg';
 import { Link, Redirect } from 'react-router-dom';
 import { isAuthenticated } from '../auth';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faThumbsUp } from '@fortawesome/free-solid-svg-icons'
 
 class SinglePost extends Component {
     state = {
         post: '',
         error: '',
-        redirectToHome: false
+        redirectToHome: false,
+        redirectToSignin: false,
+        like: false,
+        likes: 0
+    };
+
+    checkLike = (likes) => {
+        const userId = isAuthenticated() && isAuthenticated().user._id;
+        let match = likes.indexOf(userId) !== - 1;
+        return match;
     };
 
     componentDidMount = () => {
@@ -18,7 +29,39 @@ class SinglePost extends Component {
                 if (data.error) {
                     console.log(data.err)
                 } else {
-                    this.setState({ post: data })
+                    this.setState({
+                        post: data,
+                        likes: data.likes.length,
+                        like: this.checkLike(data.likes)
+                    });
+                }
+            })
+    };
+
+    likeToggle = () => {
+
+        if (!isAuthenticated()) {
+            this.setState({
+                redirectToSignin: true
+            })
+            return false
+        }
+
+        const userId = isAuthenticated().user._id;
+        const postId = this.state.post._id;
+        const token = isAuthenticated().token;
+
+        let callApi = this.state.like ? unlike : like;
+
+        callApi(userId, token, postId)
+            .then(data => {
+                if (data.error) {
+                    console.log(data.err)
+                } else {
+                    this.setState({
+                        like: !this.state.like,
+                        likes: data.likes.length
+                    })
                 }
             })
     };
@@ -47,6 +90,7 @@ class SinglePost extends Component {
         const posterId = post.postedBy ? `/user/${post.postedBy._id}` : "";
         const posterName = post.postedBy ? post.postedBy.name : "Unknown";
         const postImage = post.photo ? `${process.env.REACT_APP_API_URL}/post/photo/${post._id}` : DefaultImage;
+        const { like, likes } = this.state;
 
         return (
 
@@ -57,6 +101,24 @@ class SinglePost extends Component {
                     className='img-thumbnail mb-3'
                     style={{ height: '300px', width: '100%', objectFit: 'cover' }}
                 />
+
+                {like
+                    ? (
+                        <>
+                            <h3 onClick={this.likeToggle}>
+                                <FontAwesomeIcon icon={faThumbsUp} size="lg" className="text-success bg-dark mr-2" style={{ padding: '10px', borderRadius: '50%' }} />
+                                {likes} likes
+                        </h3>
+                        </>
+                    )
+                    : (
+                        <h3 onClick={this.likeToggle}>
+                            <FontAwesomeIcon icon={faThumbsUp} size="lg" className="text-warning bg-dark mr-2" style={{ padding: '10px', borderRadius: '50%' }} />
+                            {likes} likes
+                        </h3>
+                    )
+                }
+
 
                 <p className="card-text">{post.body}</p>
                 <br />
@@ -84,12 +146,14 @@ class SinglePost extends Component {
 
     render() {
 
+        const { post, redirectToSignin, redirectToHome } = this.state;
 
-        if (this.state.redirectToHome) {
+        if (redirectToHome) {
             return <Redirect to={`/`} />
+        } else if (redirectToSignin) {
+            return <Redirect to={`/signin`} />
         }
 
-        const { post } = this.state;
         return (
             <div className='container'>
                 <h2>{post.title}</h2>
