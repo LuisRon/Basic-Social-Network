@@ -90,6 +90,10 @@ class EditProfile extends Component {
                     data => {
                         if (data.error) {
                             this.setState({ error: data.error })
+                        } else if (isAuthenticated().user.role === "admin") {
+                            this.setState({
+                                redirectToProfile: true
+                            });
                         } else {
                             updateUser(data, () => {
                                 this.setState({
@@ -185,6 +189,10 @@ class EditProfile extends Component {
                 />
 
                 {this.signupForm(name, email, password, about)}
+
+                {isAuthenticated().user.role === "admin" ||
+                    (isAuthenticated().user._id === id &&
+                        this.signupForm(name, email, password, about))}
             </div>
         )
     }

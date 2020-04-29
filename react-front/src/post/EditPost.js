@@ -19,19 +19,19 @@ class EditPost extends Component {
     };
 
     init = postId => {
-        singlePost(postId)
-            .then(data => {
-                if (data.error) {
-                    this.setState({ redirectToProfile: true })
-                } else {
-                    this.setState({
-                        id: data._id,
-                        title: data.title,
-                        body: data.body,
-                        error: ''
-                    });
-                }
-            });
+        singlePost(postId).then(data => {
+            if (data.error) {
+                this.setState({ redirectToProfile: true });
+            } else {
+                this.setState({
+                    // id is not post.postedBy._id
+                    id: data.postedBy._id,
+                    title: data.title,
+                    body: data.body,
+                    error: ""
+                });
+            }
+        });
     };
 
     componentDidMount() {
@@ -167,7 +167,9 @@ class EditPost extends Component {
                     alt={title}
                 />
 
-                {this.editPostForm(title, body)}
+                {isAuthenticated().user.role === "admin" ||
+                    (isAuthenticated().user._id === id &&
+                        this.editPostForm(title, body))}
             </div>
         )
     }
